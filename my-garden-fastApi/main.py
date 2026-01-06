@@ -1,22 +1,16 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
+import math
 
 app = FastAPI()
 
 
-@app.get("/")
-async def root():
-    return {"message": "Hello World"}
+# @app.get("/")
+# async def root():
+#     return {"message": "Hello World"}
 
-class Plant(BaseModel):
-    name: str
-    description: str | None = None
-    x: int
-    y: int
 
-class checkRequest(BaseModel):
-    new_plant:Plant
-    existingPlants:list[Plant]
+    
     
 RULES = {
     'tomato': {
@@ -135,24 +129,56 @@ RULES = {
         'distance': 60
     }
 }
-thisdict = {
-  "brand": "Ford",
-  "model": "Mustang",
-  "year": 1964
-}
-print(thisdict["brand"])
 
-def checkCompanion(request:checkRequest):
-   
+
+class Plant(BaseModel):
+    id:int
+    type: str
+    description: str | None = None
+    x: int
+    y: int
+
+class CheckRequest(BaseModel):
+    new_plant:Plant
+    existing_plants:list[Plant]
     
 
-def add_numbers(a, b):
-    """
-    这个函数接收两个数字作为参数，并返回它们的和。
-    """
-    sum_result = a + b
-    return sum_result
+class CheckResponse(BaseModel):
+    warnings: list[str]
+    suggestions: list[str]
+    highlight_bad: list[int]  
+    highlight_good: list[int]  
 
-@app.post("/plants/")
+
+@app.post("/api/CheckCompanion/")
+def CheckCompanion(request:CheckRequest):
+    # print("check")
+    warnings = []
+    suggestions = []
+    highlight_bad = []
+    highlight_good = []
+    for existing_plant in request.existing_plants:
+        distance=math.sqrt((request.new_plant.x-existing_plant.x)**2+(request.new_plant.y-existing_plant.y)**2)
+        newplantrule=RULES[request.new_plant.type]
+        if distance< newplantrule['distance']:
+            if existing_plant.type in newplantrule['good']:
+                suggestion=f"{request.new_plant.type} is companion with {existing_plant.type} "
+                suggestions.append(suggestion)
+                highlight_good.append(existing_plant.id)
+            if existing_plant.type in newplantrule['bad']:
+                warning=f"{request.new_plant.type} is comflict with {existing_plant.type} "
+                warnings.append(warning)
+                highlight_bad.append(existing_plant.id)
+    # print(f"warnings: {warnings}")
+    # print(f"suggestions: {suggestions}")
+    return CheckResponse(
+        warnings=warnings,
+        suggestions=suggestions,
+        highlight_bad=highlight_bad,   
+        highlight_good= highlight_good    
+)
+   
+
+@app.post("/api/plants/")
 async def create_item(plant: Plant):
     return plant
