@@ -7,8 +7,23 @@ const PLANT_ITEM_HEIGHT = 80;
 const BOX_WIDTH=160;
 const BOX_HEIGHT=300;
 
+//check if current plant isoverlapping
+function IsOverLapping (curPlant,exiPlant){
+  
+  const leftOf = curPlant.x+curPlant.width<exiPlant.x
+  const topOf = curPlant.y+curPlant.height<exiPlant.y
+  const rightOf = curPlant.x > exiPlant.x+exiPlant.width
+  const bottomOf = curPlant.y > exiPlant.y+exiPlant.height
+  if(!(leftOf ||topOf || rightOf || bottomOf )){
+    return true}
+
+return false
+}
+
+
+
 // image component
-function ItemImage({ item }) {
+function ItemImage({ item,allPlants }) {
   const [image, setImage] = useState(null)
   
   useEffect(() => {
@@ -22,8 +37,41 @@ function ItemImage({ item }) {
     return () => {
       img.onload = null;
     }
-  }, [item.image])
+  }, [item.image]) // when item.image chaged run this code
   
+
+const handleDragBound = (pos)=>{
+
+//pos:the place item wants to go 
+const curItem={
+
+ x:pos.x,
+ y:pos.y,
+ width:item.width,
+ height:item.height
+}
+
+for(let other of allPlants){
+  if (other.id == item.id)
+    continue
+  const otherPlant={
+    x:other.x,
+    y:other.y,
+    width:other.width,
+    height:other.height
+  }
+  
+  if(IsOverLapping(curItem,otherPlant)){
+    return {x:item.x,y:item.y}
+  }
+ 
+}
+return pos
+
+}
+
+
+
   if (!image) return null 
   
   return (
@@ -31,9 +79,10 @@ function ItemImage({ item }) {
       image={image}
       x={item.x}
       y={item.y}
-      width={80}
-      height={80}
+      width={item.width}
+      height={item.height}
       draggable={true} 
+      dragBoundFunc={handleDragBound} 
     />
   )
 }
@@ -74,7 +123,6 @@ function KonvaCanvas() {
       width: PLANT_ITEM_WIDTH ,
       height: PLANT_ITEM_HEIGHT,
       type: plantType,
-      name: plant.name,
       image: plant.image
     }
     setPlants([...plants, newPlant])
@@ -110,7 +158,7 @@ function KonvaCanvas() {
         ))}
         {/* box button */}
         <button onClick={addBox}>
-          {BOX_CONFIG.emoji} Add {BOX_CONFIG.name}
+          {PlantBox.emoji} Add {PlantBox.name}
         </button>
       </div>
 
@@ -122,6 +170,7 @@ function KonvaCanvas() {
             <ItemImage 
               key={plant.id} 
               item={plant} 
+              allPlants={plants} 
             />
           ))}
           {/* render boxes */}
@@ -129,6 +178,7 @@ function KonvaCanvas() {
             <ItemImage 
               key={box.id} 
               item={box} 
+              allPlants={plants} 
             />
           ))}
         </Layer>
