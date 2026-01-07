@@ -29,7 +29,7 @@ function IsOutOfBound (curPlant){
 
 
 // image component
-function ItemImage({ item,allPlants,onShowGuide,onCheckCompanion,onUpdatePlantPosition,highlight,onHighlight}) {
+function ItemImage({ item,allPlants,onShowGuide,onCheckCompanion,onUpdatePlantPosition,highlight,onHighlight,onDeletePlant}) {
   const [image, setImage] = useState(null)
   
   useEffect(() => {
@@ -87,13 +87,52 @@ else if (highlight && highlight.bad.includes(item.id)){
 
 }
 
+const handleContextMenu = (e)=>{
+  e.evt.preventDefault(); 
+  e.evt.stopPropagation(); 
+  onDeletePlant(item.id)
+
+}
+
 
 const handleShowguide=()=>{
 onShowGuide(item
 )
 }
 
+const handleDragBound = (pos) => {
+  const minX = 0;
+  const maxX = STAGE_WIDTH - item.width;
+  const minY = 0;
+  const maxY = STAGE_HEIGHT - item.height;
 
+  let finalX; 
+  if (pos.x > maxX) {
+   
+    finalX = maxX;
+  } else if (pos.x < minX) {
+ 
+    finalX = minX;
+  } else {
+    
+    finalX = pos.x;
+  }
+
+ 
+  let finalY; 
+  if (pos.y > maxY) {
+    finalY = maxY;
+  } else if (pos.y < minY) {
+    finalY = minY;
+  } else {
+    finalY = pos.y;
+  }
+
+  return {
+    x: finalX,
+    y: finalY
+  };
+};
 
 
 
@@ -140,9 +179,10 @@ onShowGuide(item
       width={item.width}
       height={item.height}
       draggable={true} 
-      //dragBoundFunc={handleDragBound} 
+      dragBoundFunc={handleDragBound} 
       onDblClick={handleShowguide}
       onDragEnd={handleDragEnd }
+      onContextMenu={handleContextMenu}
     />
   )
 }
@@ -225,8 +265,6 @@ const PLANTS = {
   const [showGuide, setShowGuide] = useState(null)  //show guide html
   const [highlight,setHighlight]=useState({ good:[], bad:[]})
 
-
-  
   
   const addPlant = (plantType) => {
     const plant = PLANTS[plantType]
@@ -240,18 +278,17 @@ const PLANTS = {
       image: plant.image,
       guide: plant.guide|| 'No guide available'
     }
-    setPlants([...plants, newPlant])
+   const otherPlants = plants.filter((p)=> p.id !== newPlant.id)
+    checkCompanion(newPlant, otherPlants)
+     setPlants([...plants, newPlant])
   }
 
-  // const deletePlant=(plantId) => {
-  //   const newPlants = plants.filter((plant) => {
-  //     if (plantId !==plant.id){return true}
-  //     return false 
-  //   })
-  //    setPlants(newPlants)
-  // }
+  
+ 
   const deletePlant = (plantId) => {
+    
   setPlants(plants.filter(plant => plant.id !== plantId))
+   
 }
 
   const addBox = () => {
@@ -280,21 +317,22 @@ return updatedPlants})
   
 const updatePlantPosition = (plantId, newX, newY) => {
   setPlants(prevPlants => {
-    // 步骤1：调用map遍历旧数组prevPlants，生成新数组updatedPlantsArray
+
     const updatedPlantsArray = prevPlants.map(plant => {
-      // 步骤2：对遍历到的每一个plant做判断
+
       if (plant.id === plantId) {
-        // 👉 情况1：是目标植物 → 返回【更新后的plant对象】
+       
         return { ...plant, x: newX, y: newY };
       } else {
-        // 👉 情况2：不是目标植物 → 返回【原plant对象】
+        
         return plant;
       }
     });
-    // 步骤3：把包含更新后plant的新数组返回给setPlants
+
     return updatedPlantsArray;
   });
 };
+
   const checkCompanion = async (currentPlant, existingPlants) => {
      try {
       console.log('sent to the server new_plant：', currentPlant);
@@ -373,6 +411,7 @@ const updatePlantPosition = (plantId, newX, newY) => {
               onUpdatePlantPosition={updatePlantPosition}
               highlight={highlight}
               onHighlight={setHighlight}
+              onDeletePlant={deletePlant}
             />
           ))}
           {/* render boxes */}
