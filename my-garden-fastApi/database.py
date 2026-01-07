@@ -53,22 +53,44 @@ def create_garden(name):
   
     return garden_id
 
-def get_all_gardens():
+# def get_all_gardens():
 
-    gardens=[]
+#     gardens=[]
     
+#     conn = None
+#     try:
+#         conn = psycopg2.connect(**DB_CONFIG)
+#         cur = conn.cursor()
+       
+#         sql = "SELECT id, name, created_at, updated_at  FROM gardens ORDER BY updated_at DESC"
+#         cur.execute(sql)
+#         gardens = cur.fetchall()
+#         print(f"get{len(gardens)}gardens:{gardens}")
+    
+#     except Exception as e:
+#         print(f"error:{e}")
+    
+#     finally:
+#         if conn:
+#             cur.close()
+#             conn.close()
+    
+#     return gardens
+
+def get_all_gardens():
+    gardens = []
     conn = None
     try:
-        conn = psycopg2.connect(**DB_CONFIG)
+        conn = psycopg2.connect(**DB_CONFIG, cursor_factory=RealDictCursor) 
         cur = conn.cursor()
-       
-        sql = "SELECT id, name, created_at, updated_at  FROM gardens ORDER BY updated_at DESC"
+        
+        sql = "SELECT id, name, created_at, updated_at FROM gardens ORDER BY updated_at DESC"
         cur.execute(sql)
         gardens = cur.fetchall()
-        print(f"get{len(gardens)}gardens:{gardens}")
+        print(f"get {len(gardens)} gardens: {gardens}")
     
     except Exception as e:
-        print(f"error:{e}")
+        print(f"error: {e}")
     
     finally:
         if conn:
@@ -78,27 +100,42 @@ def get_all_gardens():
     return gardens
     
     
-def save_garden_plants(plants,garden_id):
-    
+def save_garden_plants(garden_id, plants): 
     conn = None
     try:
         conn = psycopg2.connect(**DB_CONFIG)
         cur = conn.cursor()
-    #    delete old plants 
+        
+      
         del_sql = "DELETE FROM plants WHERE garden_id=%s"
-        cur.execute(del_sql,garden_id)
+        cur.execute(del_sql, (garden_id,))  
+        
+        
         for plant in plants:
-            insert_sql = "INSERT INTO PLANTS(garden_id, plant_id, plant_type, x, y, width, height) VALUES (%s, %s, %s, %s, %s, %s, %s)"
-            plant_data = (garden_id,plant['id'], plant['type'], plant['x'], plant['y'], plant['width'], plant['height'])
-        cur.execute(update_sql, (garden_id,))
+            insert_sql = """
+                INSERT INTO plants (garden_id, plant_id, plant_type, x, y, width, height)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """
+            plant_data = (
+                garden_id,
+                plant['id'],
+                plant['type'],
+                plant['x'],
+                plant['y'],
+                plant['width'],
+                plant['height']
+            )
+            cur.execute(insert_sql, plant_data)
+        
+        
         update_sql = "UPDATE gardens SET updated_at = CURRENT_TIMESTAMP WHERE id = %s"
-        cur.execute(update_sql, (garden_id))
-         
+        cur.execute(update_sql, (garden_id,))  
+        
         conn.commit()
-        print(f"save{len(plants)} {garden_id} success!")
+        print(f"Saved {len(plants)} plants to garden {garden_id}")
     
     except Exception as e:
-        print(f"fail to save. error:{e}")
+        print(f"Failed to save: {e}")
         if conn:
             conn.rollback()
     
@@ -112,8 +149,7 @@ def load_garden_plants(garden_id):
     plants = []
     conn = None
     try:
-        
-        conn = psycopg2.connect(**DB_CONFIG)
+        conn = psycopg2.connect(**DB_CONFIG, cursor_factory=RealDictCursor) 
         cur = conn.cursor()
         
       
@@ -133,5 +169,30 @@ def load_garden_plants(garden_id):
             conn.close()
     
     return plants
+
+def delete_garden(garden_id):
+
+    conn = None
+    try:
+        conn = psycopg2.connect(**DB_CONFIG)
+        cur = conn.cursor()
+        
+   
+        sql = "DELETE FROM gardens WHERE id = %s"
+        cur.execute(sql, (garden_id,))
+        
+        conn.commit()
+        print(f"Deleted garden {garden_id}")
+    
+    except Exception as e:
+        print(f"Failed to delete garden: {e}")
+        if conn:
+            conn.rollback()
+        raise e
+    
+    finally:
+        if conn:
+            cur.close()
+            conn.close()
 
 

@@ -210,7 +210,7 @@ async def create_garden(request: CreateGarden):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
    
-@app.post("/api/gardens/getAllgardens")
+@app.get("/api/gardens/getAllgardens")
 async def get_gardens():
     try:
         gardens=db.get_all_gardens()
@@ -219,14 +219,14 @@ async def get_gardens():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/gardens/saveplants")
-async def save_plants(request:plantsSave,garden_id: int):
+async def save_plants(garden_id: int, request: plantsSave):  
     try:
-        db.save_garden_plants(request.plants,garden_id)
+        db.save_garden_plants(garden_id, request.plants)
         return {"message": "Garden saved successfully", "garden_id": garden_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-@app.post("/api/gardens/loadplants")
+@app.get("/api/gardens/loadplants")
 async def load_plants(garden_id):
     try:
         plants_data=db.load_garden_plants(garden_id)
@@ -242,6 +242,16 @@ async def load_plants(garden_id):
             })
         return {"plants": plants}
             
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    
+@app.delete("/api/gardens/{garden_id}")
+async def delete_garden(garden_id: int):
+    """删除花园"""
+    try:
+        db.delete_garden(garden_id)
+        return {"message": "Garden deleted successfully", "garden_id": garden_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
