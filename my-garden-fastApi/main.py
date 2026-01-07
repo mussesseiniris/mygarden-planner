@@ -2,7 +2,8 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import math
 from fastapi.middleware.cors import CORSMiddleware
-
+import database as db
+from fastapi import HTTPException
 app = FastAPI()
 
 
@@ -16,10 +17,10 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # 允许的前端域名
+    allow_origins=origins, 
     allow_credentials=True,
-    allow_methods=["*"],  # 允许所有请求方法（POST/GET等）
-    allow_headers=["*"],  # 允许所有请求头
+    allow_methods=["*"], 
+    allow_headers=["*"],  
 )
     
     
@@ -152,6 +153,18 @@ class CheckResponse(BaseModel):
     highlight_bad: list[int]  
     highlight_good: list[int]  
 
+class CreateGarden(BaseModel):
+    name:str
+
+class gardensResponse(BaseModel):
+    id:int
+    name:str
+    
+class plantsSave(BaseModel):
+  plants:list[dict]
+  
+class plantsLoad(BaseModel):
+  plants:list[dict]
 
 @app.post('/api/CheckCompanion/')
 def CheckCompanion(request:CheckRequest):
@@ -188,7 +201,50 @@ def CheckCompanion(request:CheckRequest):
         highlight_bad=highlight_bad,   
         highlight_good= highlight_good    
 )
+
+@app.post("/api/gardens/create")
+async def create_garden(request: CreateGarden):
+    try:
+        garden_id = db.create_garden(request.name)
+        return {"id": garden_id, "name": request.name, "message": "Garden created successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
    
+@app.post("/api/gardens/getAllgardens")
+async def get_gardens():
+    try:
+        gardens=db.get_all_gardens()
+        return {"gardens": gardens}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/gardens/saveplants")
+async def save_plants(request:plantsSave,garden_id: int):
+    try:
+        db.save_garden_plants(request.plants,garden_id)
+        return {"message": "Garden saved successfully", "garden_id": garden_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@app.post("/api/gardens/loadplants")
+async def load_plants(garden_id):
+    try:
+        plants_data=db.load_garden_plants(garden_id)
+        plants = []
+        for p in plants_data:
+             plants.append({
+                'id': p['plant_id'],
+                'type': p['plant_type'],
+                'x': p['x'],
+                'y': p['y'],
+                'width': p['width'],
+                'height': p['height']
+            })
+        return {"plants": plants}
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
 
 @app.post("/api/plants/")
 async def create_item(plant: Plant):
