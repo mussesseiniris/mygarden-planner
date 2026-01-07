@@ -77,12 +77,12 @@ let borderWidth = 0;
 
 
 if (highlight && highlight.good.includes(item.id)){
-  borderColor ='green'
+  borderColor ='rgb(168, 226, 103)'
   borderWidth = 3;
 
 }
 else if (highlight && highlight.bad.includes(item.id)){
-  borderColor ='pink'
+  borderColor ='rgb(219, 80, 172)'
   borderWidth = 3;
 
 }
@@ -91,7 +91,6 @@ const handleContextMenu = (e)=>{
   e.evt.preventDefault(); 
   e.evt.stopPropagation(); 
   onDeletePlant(item.id)
-
 }
 
 
@@ -265,6 +264,11 @@ const PLANTS = {
   const [showGuide, setShowGuide] = useState(null)  //show guide html
   const [highlight,setHighlight]=useState({ good:[], bad:[]})
 
+ 
+  const [gardens, setGardens] = useState([])            
+  const [currentGardenId, setCurrentGardenId] = useState(null)  
+  const [gardenName, setGardenName] = useState('')   
+
   
   const addPlant = (plantType) => {
     const plant = PLANTS[plantType]
@@ -374,11 +378,246 @@ const updatePlantPosition = (plantId, newX, newY) => {
   
 }
 
+  const createGarden= async () => {
+
+  if (!gardenName.trim()) {
+    alert('Please enter a garden name')
+    return
+  }
+     try {
+    
+  const response = await fetch('http://127.0.0.1:8000/api/gardens/create', {
+    method: 'POST',  // 
+    headers: {
+      'Content-Type': 'application/json'  // 
+    },
+    body: JSON.stringify({
+     name: gardenName
+    })  // 
+  })
+   // Verify whether the server response was successful
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`server error:${JSON.stringify(errorData)}`);
+      }
+
+  const data = await response.json()
+   
+    alert(`Garden "${gardenName}" created!`)
+    setGardenName('')  // clear input
+    setCurrentGardenId(data.id)  // switch to another garden
+    setPlants([])  // clear canvas
+    fetchGardens()  // refresh garden list
+   
+  } catch (error) {
+    console.error('Failed to create garden:', error)
+    alert('Failed to create garden')
+  }
+  
+}
+
+  const fetchGardens= async () => {
+
+     try {
+    
+  const response = await fetch('http://127.0.0.1:8000/api/gardens/getAllgardens')
+   // Verify whether the server response was successful
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`server error:${JSON.stringify(errorData)}`);
+      }
+
+  const data = await response.json()
+  setGardens(data.gardens)
+   
+  } catch (error) {
+    console.error('Failed to load gardens:', error)
+    alert('Failed to load gardens')
+  }
+  
+}
+
+// 
+
+const saveCurrentGarden = async () => {
+  console.log('=== SAVE DEBUG ===')
+  console.log('currentGardenId:', currentGardenId)
+  console.log('type:', typeof currentGardenId)
+  console.log('plants count:', plants.length)
+
+  if (!currentGardenId) {
+    alert('Please select or create a garden first')
+    return
+  }
+  
+  try {
+    // ← 注意这里！URL里加query参数
+    const response = await fetch(`http://127.0.0.1:8000/api/gardens/saveplants?garden_id=${currentGardenId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        plants: plants  
+      })
+    })
+    
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(`server error:${JSON.stringify(errorData)}`)
+    }
+
+    alert('Garden saved successfully!')
+    fetchGardens()
+   
+  } catch (error) {
+    console.error('Failed to save garden:', error)
+    alert('Failed to save garden')
+  }
+}
+
+const loadGarden = async (gardenId) => {
+
+    const id = parseInt(gardenId)
+  if (isNaN(id)) {
+    alert('Invalid garden ID')
+    return
+  }
+  try {
+    // const response = await fetch(`http://127.0.0.1:8000/api/gardens/${id}/loadplants`)
+    const response = await fetch(`http://127.0.0.1:8000/api/gardens/loadplants?garden_id=${id}`)
+    const data = await response.json()
+    
+    const loadedPlants = data.plants.map(p => ({
+      ...p,
+      image: PLANTS[p.type].image,
+      guide: PLANTS[p.type].guide
+    }))
+    
+    setPlants(loadedPlants)
+    setCurrentGardenId(gardenId)
+    setHighlight({good: [], bad: []})  
+    alert('Garden loaded successfully!')
+  } catch (error) {
+    console.error('Failed to load garden:', error)
+    alert('Failed to load garden')
+  }
+}
+
+
+const deleteGarden = async (gardenId) => {
+  const gardenToDelete = gardens.find(g => g.id === gardenId)
+  
+  if (!confirm(`Are you sure you want to delete "${gardenToDelete?.name}"? This cannot be undone.`)) {
+    return
+  }
+  
+  try {
+    const response = await fetch(`http://127.0.0.1:8000/api/gardens/${gardenId}`, {
+      method: 'DELETE'
+    })
+    
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(JSON.stringify(errorData))
+    }
+    
+    alert('Garden deleted!')
+    
+  
+    if (currentGardenId === gardenId) {
+      setCurrentGardenId(null)
+      setPlants([])
+    }
+    
+    fetchGardens()  
+  } catch (error) {
+    console.error('Failed to delete garden:', error)
+    alert('Failed to delete garden')
+  }
+}
+
+
+useEffect(() => {
+  fetchGardens()
+}, [])
+
 
   return (
      <>
     <div className="App">
       <h1>Garden Planner</h1>
+     
+      <div style={{
+        margin: '10px', 
+        padding: '10px', 
+        //border: '2px solid #4CAF50', 
+        borderRadius: '8px',
+        backgroundColor: 'rgb(100, 98, 82)'
+      }}>
+        <div style={{marginBottom: '10px'}}>
+          {/* Create new garden */}
+          <input 
+            type="text"
+            value={gardenName}
+            onChange={(e) => setGardenName(e.target.value)}
+            placeholder="Enter garden name"
+            style={{padding: '5px', marginRight: '10px'}}
+          />
+          <button onClick={createGarden} style={{marginRight: '10px'}}>
+            🌱 Create New Garden
+          </button>
+          
+          {/* save garden*/}
+          <button 
+            onClick={saveCurrentGarden} 
+            disabled={!currentGardenId}
+            style={{marginRight: '10px'}}
+          >
+            💾 Save Current Garden
+          </button>
+        </div>
+        
+        {/* garden option */}
+        <div>
+          <label style={{marginRight: '10px'}}>Select Garden: </label>
+          <select 
+            value={currentGardenId || ''} 
+            onChange={(e) => loadGarden(parseInt(e.target.value))}
+            style={{padding: '5px'}}
+          >
+            <option value="">-- Choose a garden --</option>
+            {gardens.map(garden => (
+              <option key={garden.id} value={garden.id}>
+                {garden.name} 
+              </option>
+
+
+
+            ))}
+          </select>
+          
+<button 
+  onClick={() => deleteGarden(currentGardenId)}
+  disabled={!currentGardenId}
+  style={{
+    marginLeft: '10px', 
+    backgroundColor: 'rgb(228, 170, 209)',
+    color: 'white',
+    padding: '5px 10px'
+  }}
+>
+  🗑️ Delete Garden
+</button>
+
+
+          {currentGardenId && (
+            <span style={{marginLeft: '10px', color: '#4CAF50', fontWeight: 'bold'}}>
+              Currently editing: {gardens.find(g => g.id === currentGardenId)?.name}
+            </span>
+          )}
+        </div>
+      </div>
       
       <div style={{margin: '10px'}}>
         {/* plant button */}
@@ -391,10 +630,11 @@ const updatePlantPosition = (plantId, newX, newY) => {
           </button>
         ))}
         
-        {/* box button */}
+        {/* box button
         <button onClick={addBox}>
           {PlantBox.emoji} Add {PlantBox.name}
-        </button>
+        </button> */}
+
       </div>
 
     {/* canvas*/}
