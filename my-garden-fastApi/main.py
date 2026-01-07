@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 import math
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
@@ -9,7 +10,17 @@ app = FastAPI()
 # async def root():
 #     return {"message": "Hello World"}
 
+origins = [
+    "http://localhost:5173",
+]
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  # 允许的前端域名
+    allow_credentials=True,
+    allow_methods=["*"],  # 允许所有请求方法（POST/GET等）
+    allow_headers=["*"],  # 允许所有请求头
+)
     
     
 RULES = {
@@ -22,9 +33,8 @@ RULES = {
             'potato': 'Both susceptible to blight disease',
             'cabbage': 'Competes for nutrients'
         },
-        'distance': 50
+        'distance': 150  # 50cm × 3 = 100px
     },
-    
     'potato': {
         'good': ['beans', 'cabbage', 'corn'],
         'bad': ['tomato', 'cucumber', 'pumpkin'],
@@ -33,9 +43,8 @@ RULES = {
             'tomato': 'Both get early and late blight',
             'cucumber': 'Both attract same pests'
         },
-        'distance': 40
+        'distance': 120  # 40cm × 3 = 80px
     },
-    
     'lettuce': {
         'good': ['carrot', 'radish', 'strawberry', 'cucumber'],
         'bad': ['broccoli', 'cabbage'],
@@ -44,9 +53,8 @@ RULES = {
             'radish': 'Radishes break up soil for lettuce roots',
             'broccoli': 'Heavy feeders compete for nutrients'
         },
-        'distance': 30
+        'distance': 90  # 30cm × 3 = 300px
     },
-    
     'carrot': {
         'good': ['tomato', 'lettuce', 'onion', 'leek'],
         'bad': ['dill', 'parsnip'],
@@ -55,9 +63,8 @@ RULES = {
             'tomato': 'Tomatoes give off solanine protecting carrots',
             'dill': 'Stunts carrot growth'
         },
-        'distance': 20
+        'distance': 60  # 20cm × 3 = 200px
     },
-    
     'onion': {
         'good': ['carrot', 'tomato', 'lettuce', 'cabbage'],
         'bad': ['beans', 'peas'],
@@ -66,9 +73,8 @@ RULES = {
             'beans': 'Onions stunt bean growth',
             'peas': 'Onions inhibit pea development'
         },
-        'distance': 25
+        'distance': 75  # 25cm × 3 = 50px
     },
-    
     'beans': {
         'good': ['corn', 'potato', 'cucumber', 'radish'],
         'bad': ['onion', 'garlic', 'sunflower'],
@@ -78,9 +84,8 @@ RULES = {
             'onion': 'Onions inhibit bean growth',
             'garlic': 'Garlic stunts bean development'
         },
-        'distance': 35
+        'distance': 105  # 35cm × 3 = 105px
     },
-    
     'cucumber': {
         'good': ['beans', 'lettuce', 'radish', 'peas'],
         'bad': ['potato', 'sage', 'mint'],
@@ -90,9 +95,8 @@ RULES = {
             'potato': 'Both prone to blight in NZ humidity',
             'sage': 'Sage inhibits cucumber growth'
         },
-        'distance': 45
+        'distance': 135  # 45cm × 3 = 135px
     },
-    
     'basil': {
         'good': ['tomato', 'capsicum', 'asparagus'],
         'bad': ['rue', 'sage'],
@@ -101,9 +105,8 @@ RULES = {
             'capsicum': 'Enhances growth and flavour',
             'rue': 'Allelopathic - inhibits basil'
         },
-        'distance': 30
+        'distance': 90  # 30cm × 3 = 90px
     },
-    
     'eggplant': {
         'good': ['beans', 'peas', 'spinach', 'thyme'],
         'bad': ['fennel', 'potato', 'tomato'],
@@ -114,9 +117,8 @@ RULES = {
             'tomato': 'Both nightshade - share diseases like verticillium wilt',
             'fennel': 'Fennel inhibits growth of most vegetables'
         },
-        'distance': 45
+        'distance': 135  # 45cm × 3 = 135px
     },
-    
     'courgette': {
         'good': ['corn', 'beans', 'radish'],
         'bad': ['potato', 'pumpkin'],
@@ -126,17 +128,18 @@ RULES = {
             'potato': 'Both heavy feeders, compete',
             'pumpkin': 'Cross-pollination affects fruit'
         },
-        'distance': 60
+        'distance': 180  # 60cm × 3 = 180px
     }
 }
-
 
 class Plant(BaseModel):
     id:int
     type: str
     description: str | None = None
-    x: int
-    y: int
+    x: float
+    y: float
+    width: int
+    height: int
 
 class CheckRequest(BaseModel):
     new_plant:Plant
@@ -150,7 +153,7 @@ class CheckResponse(BaseModel):
     highlight_good: list[int]  
 
 
-@app.post("/api/CheckCompanion/")
+@app.post('/api/CheckCompanion/')
 def CheckCompanion(request:CheckRequest):
     # print("check")
     warnings = []
@@ -162,13 +165,21 @@ def CheckCompanion(request:CheckRequest):
         newplantrule=RULES[request.new_plant.type]
         if distance< newplantrule['distance']:
             if existing_plant.type in newplantrule['good']:
-                suggestion=f"{request.new_plant.type} is companion with {existing_plant.type} "
+                suggestion=f"{request.new_plant.type} is companion with {existing_plant.type}. Influence distance:{newplantrule['distance']/3}cm."
+                reason = newplantrule['reasons'].get(existing_plant.type,'')
+                if reason:
+                    suggestion=suggestion+f". {reason}."
                 suggestions.append(suggestion)
                 highlight_good.append(existing_plant.id)
+                
             if existing_plant.type in newplantrule['bad']:
-                warning=f"{request.new_plant.type} is comflict with {existing_plant.type} "
+                warning=f"{request.new_plant.type} is conflict with {existing_plant.type}. Influence distance:{newplantrule['distance']/3}cm. "
+                reason = newplantrule['reasons'].get(existing_plant.type,'')
+                if reason:
+                    warning=warning+f" {reason}."
                 warnings.append(warning)
                 highlight_bad.append(existing_plant.id)
+               
     # print(f"warnings: {warnings}")
     # print(f"suggestions: {suggestions}")
     return CheckResponse(
@@ -182,3 +193,4 @@ def CheckCompanion(request:CheckRequest):
 @app.post("/api/plants/")
 async def create_item(plant: Plant):
     return plant
+
