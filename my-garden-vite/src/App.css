@@ -9,8 +9,8 @@
   margin: 0 auto;
   display: flex;
   align-items: center;
-  background-color: skyblue;
-  color: pink;
+  background-color: rgb(100, 98, 82);
+  color: rgb(228, 170, 209);
 }
 
 .konvaCanvas button{
